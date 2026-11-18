@@ -48,6 +48,27 @@ test('many waiters do not cause a listener leak warning', async () => {
 	assert.deepEqual(warnings, []);
 });
 
+test('constructor does not throw when setMaxListeners rejects the target', () => {
+	// `setMaxListeners` only accepts Node's own `EventTarget` instances, so
+	// it throws when the queue runs under an environment with a foreign
+	// `EventTarget`, such as Jest with jsdom (https://github.com/sindresorhus/p-queue/issues/257).
+	// The call only silences a warning, so constructing the queue must not fail.
+	const originalGetBuiltinModule = process.getBuiltinModule;
+	const fakeGetBuiltinModule: typeof process.getBuiltinModule = () => ({
+		setMaxListeners() {
+			throw new TypeError('The "eventTargets" argument must be an instance of EventEmitter or EventTarget.');
+		},
+	});
+	process.getBuiltinModule = fakeGetBuiltinModule;
+
+	try {
+		const queue = new PQueue();
+		assert.ok(queue instanceof PQueue);
+	} finally {
+		process.getBuiltinModule = originalGetBuiltinModule;
+	}
+});
+
 test('should be an event target', async () => {
 	const queue = new PQueue();
 	assert.ok(queue instanceof EventTarget);

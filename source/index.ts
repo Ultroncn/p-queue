@@ -159,7 +159,15 @@ export default class PQueue<QueueType extends Queue<RunFunction, EnqueueOptionsT
 		super();
 
 		// Node.js warns when an event has more than 10 listeners, but many waiters, like `.onIdle()` calls, are normal. Not imported from `node:events`, so it still works in browsers.
-		globalThis.process?.getBuiltinModule?.('node:events')?.setMaxListeners(Infinity, this); // eslint-disable-line n/prefer-global/process
+		try {
+			globalThis.process?.getBuiltinModule?.('node:events')?.setMaxListeners(Infinity, this); // eslint-disable-line n/prefer-global/process
+		} catch {
+			// Ignore: `setMaxListeners` only accepts Node's own `EventTarget`
+			// instances, so it throws when the queue runs under an environment
+			// with a foreign `EventTarget` (for example Jest with jsdom).
+			// The call only silences a warning, so the queue works fine
+			// without it.
+		}
 
 		// Defaults in destructuring also apply to an option that is `undefined`, like `{concurrency: options.concurrency}` without a value.
 		const {
